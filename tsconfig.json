@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "src/app/(auth)/signin", "src/app/(auth)/signup", "src/app/(learner)/chat-with-mentor"  ],
   "exclude": ["node_modules"]
 }
