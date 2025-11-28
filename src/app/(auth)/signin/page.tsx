@@ -11,6 +11,7 @@ import { setCookie } from "cookies-next";
 import { setUser } from "@/features/authSlice";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
+import { loginUser, signInWithGoogle } from "@/lib/services";
 
 const loginSchema = z.object({
   email: z.email("Invalid email"),
@@ -31,35 +32,59 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await new Promise((res) => setTimeout(res, 2000));
-      const mockUser = {
-        id: "user_001",
-        name: "Sarah Johnson",
-        avatar: "/avatar.png",
-        email: data.email,
-        mode: "learner",
-        mentor: {
-          id: "mentor_101",
-          name: "Daniel James",
-          avatar: "/mentor.png",
-        },
-      };
+      const { user, token, profile } = await loginUser(
+        data.email,
+        data.password
+      );
 
-      setCookie("access_token", "mock_jwt_token_12345", {
+      // Save cookies
+      setCookie("access_token", token, {
         maxAge: 2 * 24 * 60 * 60,
         path: "/",
       });
 
-      setCookie("user_id", mockUser.id, {
+      setCookie("user_id", user.uid, {
         maxAge: 2 * 24 * 60 * 60,
         path: "/",
       });
 
-      dispatch(setUser(mockUser));
+      // Save Redux state
+      dispatch(setUser({ ...profile, uid: user.uid }));
 
-      router.push("/chat-with-mentor");
+      // Redirect based on role
+      if (!profile.accountSetup) {
+        router.push("setup-account"); // redirect to profile setup page
+      } else {
+        router.push(
+          profile.role === "mentor" ? "/mentor/dashboard" : "/mentee/dashboard"
+        );
+      }
     } catch (err) {
-      console.log("mock login error", err);
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const GoogleSignin = async () => {
+    setLoading(true);
+    try {
+      const { user, token, profile } = await signInWithGoogle();
+
+      setCookie("access_token", token, { maxAge: 2 * 24 * 60 * 60, path: "/" });
+      setCookie("user_id", user.uid, { maxAge: 2 * 24 * 60 * 60, path: "/" });
+
+      dispatch(setUser({ ...profile, uid: user.uid }));
+
+      if (!profile.accountSetup) {
+        router.push("setup-account"); // redirect to profile setup page
+      } else {
+        router.push(
+          profile.role === "mentor" ? "/mentor/dashboard" : "/mentee/dashboard"
+        );
+      }
+    } catch (e) {
+      console.error("Google sign-in failed", e);
     } finally {
       setLoading(false);
     }
@@ -106,7 +131,10 @@ export default function Login() {
           </h2>
 
           {/* Google */}
-          <button className="w-full flex items-center mb-6 justify-center border dark:border-neutral-600 p-3 rounded-lg gap-3 font-medium">
+          <button
+            onClick={GoogleSignin}
+            className="w-full flex items-center mb-6 justify-center border dark:border-neutral-600 p-3 rounded-lg gap-3 font-medium"
+          >
             <FcGoogle size={22} /> Continue with Google
           </button>
           <div className="flex items-center justify-center mt-3 w-full">

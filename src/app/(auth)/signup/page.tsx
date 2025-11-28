@@ -9,14 +9,22 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { FaUserGraduate, FaUserTie } from "react-icons/fa";
+import { registerUser } from "@/lib/services";
+import { useDispatch } from "react-redux";
+import { useRouter } from "next/navigation";
+import { setCookie } from "cookies-next";
+import { setUser } from "@/features/authSlice";
 
 const signupSchema = z.object({
   email: z.email("Invalid email"),
+  name: z.string().min(3, "Enter your full name"),
   password: z.string().min(6, "Minimum 6 characters"),
-  role: z.string().min(1, "Select a role"),
+  role: z.enum(["mentor", "mentee", "admin"], "Select a role"),
 });
 
 export default function Signup() {
+  const dispatch = useDispatch();
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -29,7 +37,7 @@ export default function Signup() {
 
   const roles = [
     {
-      id: "learner",
+      id: "mentee",
       label: "Learner",
       icon: <FaUserGraduate />,
       desc: "I want to learn, and get guidance from an experienced mentor",
@@ -42,29 +50,32 @@ export default function Signup() {
     },
   ];
 
-  const onSubmit = async (data: { email: string; password: string }) => {
+  const onSubmit = async (data: {
+    email: string;
+    password: string;
+    name: string;
+    role: "mentor" | "mentee" | "admin";
+  }) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/signup`,
-        data
-      );
-      // Watch role from react-hook-form
+      // Call Firebase registration
+      const { user, token, profile } = await registerUser({
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        name: data.name,
+      });
 
-      //   if (response.status === 200) {
-      //     setCookie("access_token", response.data.access_token, {
-      //       maxAge: 2 * 24 * 60 * 60,
-      //       path: "/",
-      //     });
-      //     setCookie("user_id", response.data.user_id, {
-      //       maxAge: 2 * 24 * 60 * 60,
-      //       path: "/",
-      //     });
+      // Save cookies
+      setCookie("access_token", token, { maxAge: 2 * 24 * 60 * 60, path: "/" });
+      setCookie("user_id", user.uid, { maxAge: 2 * 24 * 60 * 60, path: "/" });
 
-      // Redirect to the dashboard upon successful signup
-      // router.push("/survprompt-chat");
-    } catch (error: any) {
-      console.log("error", error);
+      // Save Redux state
+      dispatch(setUser({ ...profile, uid: user.uid }));
+      router.push("/setup-account");
+      
+    } catch (error) {
+      console.error("Signup error:", error);
     } finally {
       setLoading(false);
     }
@@ -106,22 +117,24 @@ export default function Signup() {
 
         {/* Right */}
         <div className="p-10 dark:text-white flex flex-col justify-center items-center bg-white dark:bg-black md:rounded-r-2xl overflow-y-auto">
-         {!initial && <div className="flex w-full items-center justify-end p-3">
-            <p className="text-sm">You’re signing up as a </p>
+          {!initial && (
+            <div className="flex w-full items-center justify-end p-3">
+              <p className="text-sm">You’re signing up as a </p>
 
-             <button
-              type="button"
-              onClick={() => setInitial(true)}
-              className="group ml-2 p-1.5 bg-slate-50 rounded-md"
-            >
-              <span className=" bg-orange-500 group-hover:bg-slate-50 group-hover:text-orange-500 text-white rounded-md p-1 capitalize">
-                {roles.find((r) => r.id === roleValue)?.label}
-              </span>{" "}
-              <span className=" cursor-pointer underline group-hover:bg-orange-500 text-orange-500 group-hover:text-white rounded-md p-1 capitalize">
-                Change
-              </span>
-            </button>
-          </div>}
+              <button
+                type="button"
+                onClick={() => setInitial(true)}
+                className="group ml-2 p-1.5 bg-slate-50 rounded-md"
+              >
+                <span className=" bg-orange-500 group-hover:bg-slate-50 group-hover:text-orange-500 text-white rounded-md p-1 capitalize">
+                  {roles.find((r) => r.id === roleValue)?.label}
+                </span>{" "}
+                <span className=" cursor-pointer underline group-hover:bg-orange-500 text-orange-500 group-hover:text-white rounded-md p-1 capitalize">
+                  Change
+                </span>
+              </button>
+            </div>
+          )}
           <h2 className="text-2xl text-center font-semibold py-4">
             Create an account
           </h2>
@@ -147,7 +160,11 @@ export default function Signup() {
                 {roles.map((role) => (
                   <label
                     key={role.id}
-                    className={`border ${roleValue === role.id ? 'border-orange-500' : 'border-slate-200 dark:border-neutral-700'}  bg-white dark:bg-neutral-700 p-4 rounded-xl cursor-pointer flex gap-4 items-start hover:border-orange-500 transition-all`}
+                    className={`border ${
+                      roleValue === role.id
+                        ? "border-orange-500"
+                        : "border-slate-200 dark:border-neutral-700"
+                    }  bg-white dark:bg-neutral-700 p-4 rounded-xl cursor-pointer flex gap-4 items-start hover:border-orange-500 transition-all`}
                   >
                     <input
                       type="radio"
@@ -178,7 +195,21 @@ export default function Signup() {
               </div>
             )}
             {!initial && (
-              <div className="w-full space-y-4">
+              <div className="w-full space-y-4 max-h-[60vh] overflow-y-auto">
+                <div>
+                  <label className="block text-sm font-medium">Name</label>
+                  <input
+                    type="text"
+                    {...register("name")}
+                    placeholder="Enter your full name"
+                    className="w-full border dark:border-neutral-600 bg-transparent mt-1 p-3 rounded-lg"
+                  />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm">
+                      {errors.name.message}
+                    </p>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-medium">Email</label>
                   <input
