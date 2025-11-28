@@ -1,4 +1,4 @@
-import { ChatMessage, Message } from '@/types/message';
+import { ChatMessage } from '@/types/chat';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -92,13 +92,13 @@ export function formatMessageDay(dateString: string): string {
 
 export function groupMessagesByDate(messages: ChatMessage[]) {
   const sorted = [...messages].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 
   const groups: { date: string; items: ChatMessage[] }[] = [];
 
   sorted.forEach((m) => {
-    const formatted = formatMessageDay(m.timestamp);
+    const formatted = formatMessageDay(m.createdAt);
     let group = groups.find((g) => g.date === formatted);
     if (!group) {
       group = { date: formatted, items: [] };

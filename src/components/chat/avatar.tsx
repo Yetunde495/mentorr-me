@@ -1,7 +1,7 @@
 import { User } from '@/types/user';
 import React from 'react';
 
-export const AvatarWithStatus: React.FC<{ user: User; onClick?: () => void }> = ({ user, onClick }) => {
+export const AvatarWithStatus: React.FC<{ user: User; onClick?: () => void; online?:boolean; }> = ({ user, onClick, online }) => {
   return (
     <button onClick={onClick} className="flex items-center gap-3">
       <div className="relative">
@@ -10,7 +10,7 @@ export const AvatarWithStatus: React.FC<{ user: User; onClick?: () => void }> = 
       </div>
       <div className="hidden md:block text-left">
         <div className="text-sm font-medium">{user.name}</div>
-        <div className="text-xs text-gray-500">{user.online ? 'Online' : 'Last seen recently'}</div>
+        <div className="text-xs text-gray-500">{online ? 'Online' : 'Last seen recently'}</div>
       </div>
     </button>
   );
