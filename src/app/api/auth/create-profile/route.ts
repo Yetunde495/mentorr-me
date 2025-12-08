@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const role = body.role;
     const name = body.name;
+    const email = body.email;
 
     if (!role || !name)
       return NextResponse.json(
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       uid,
       name,
       role,
+      email,
       bio: "",
       profession: "",
       skillFocus: "",
