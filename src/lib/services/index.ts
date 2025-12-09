@@ -37,7 +37,7 @@ export async function registerUser({
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json", // ← ALSO ADD THIS
       },
-      body: JSON.stringify({ role, name }),
+      body: JSON.stringify({ role, name, email }),
     }).then((res) => res.json());
 
     // Return both auth + profile data
@@ -128,3 +128,7 @@ export async function updateUserProfile(data: any) {
     body: JSON.stringify(data),
   });
 }
+
+
+
+

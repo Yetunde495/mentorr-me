@@ -40,7 +40,7 @@ export default function ProfileSetup() {
     setLoading(true);
     try {
       // Call your API to update profile
-      await updateUserProfile({ data, account_setup: true });
+      await updateUserProfile({ ...data, accountSetup: true });
 
       // Update redux state
       dispatch(setUser({ ...user, ...data }));

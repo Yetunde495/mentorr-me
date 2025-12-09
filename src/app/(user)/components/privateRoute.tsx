@@ -17,25 +17,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
 
   const token = getCookie("access_token");
 
-  const fetchProfile = async () => {
-    try {
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/user/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 200) {
-        dispatch(setUser(response.data));
-      }
-    } catch (error) {
-      console.log("Profile fetch error:", error);
-      router.push("/");
-    }
-  };
+ 
 
   useEffect(() => {
     if (!token) {

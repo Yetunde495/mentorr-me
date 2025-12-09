@@ -15,13 +15,17 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FaUserGraduate, FaUserTie } from "react-icons/fa";
 import Avatar from "../ui/avatar";
-import { setUser } from "@/features/authSlice";
+import { clearUser, setUser } from "@/features/authSlice";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/services/firebase";
+import { useRouter } from "next/navigation";
 
 function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const dispatch = useDispatch();
+  const router = useRouter();
   const user = useSelector((state: any) => state.auth.user);
 
   const mentorChats =
@@ -41,6 +45,18 @@ function Sidebar() {
           },
         ]
       : [];
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      dispatch(clearUser());
+      router.push("/signin");
+      console.log("User successfully logged out.");
+    } catch (error) {
+      console.error("Logout Error:", error);
+      alert("Logout failed. Please try again.");
+    }
+  };
 
   return (
     <aside className="relative">
@@ -108,16 +124,19 @@ function Sidebar() {
             );
           },
           toggleTheme: () => setDarkMode(!darkMode),
-          logout: () => console.log("logout"),
+          logout: () => logout(),
           selectChat: (id: string | undefined) => console.log("open chat:", id),
         })}
       </motion.div>
-      <button
+      <div>
+       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-14 w-6 h-6 flex items-center justify-center rounded-full bg-white dark:bg-gray-900 border dark:border-gray-700 shadow"
+        className={`absolute ${collapsed ? '-right-6 top-8' : 'right-1 top-5'} cursor-pointer z-999 w-6 h-6 flex items-center justify-center rounded-full bg-white dark:bg-gray-900 border dark:border-gray-700 shadow`}
       >
         {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
+      </div>
+      
     </aside>
   );
 }
@@ -232,8 +251,6 @@ function renderSidebarContent({
       )}
 
       <div className="mt-auto p-4 border-t border-slate-100 dark:border-gray-800">
-        
-
         <div className="relative" ref={ref}>
           <AnimatePresence>
             {open && (
@@ -274,7 +291,7 @@ function renderSidebarContent({
                 <button
                   className="w-full text-left flex items-center gap-1.5 px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 "
                   onClick={() => {
-                    console.log("Logout clicked");
+                    logout();
                     setOpen(false);
                   }}
                 >
@@ -293,7 +310,6 @@ function renderSidebarContent({
             </div>
           </div>
         </div>
-
       </div>
     </>
   );

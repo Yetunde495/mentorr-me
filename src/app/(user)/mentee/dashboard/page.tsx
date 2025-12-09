@@ -1,172 +1,167 @@
 "use client";
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { ChatWindow } from "@/components/learners/chat-window";
-import { MessageInput } from "@/components/learners/message-input";
-import { AvatarWithStatus } from "@/components/chat/avatar";
-import { ProfileModal } from "@/components/mentors/profile-modal";
-import { useChat } from "@/hooks/use-chat-channel";
-import { ChatMessage } from "@/types/chat";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { useSelector } from "react-redux";
+import { db } from "@/lib/services/firebase";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { ImageAvatar } from "@/components/ui/avatar";
+import { toast } from "sonner";
 
-const ChatPage: React.FC = () => {
-  // replace with router or auth values as needed
-  const mentorId = "mentor-1";
-  const currentUser = { id: "student-123", name: "You" };
+interface AssignedTo {
+  id: string;
+  name: string;
+  photoURL?: string;
+}
 
-  // Use a presence channel name so the hook receives members info
-  const channelName = `presence-chat-${mentorId}-${currentUser.id}`;
+interface UserProfile {
+  id: string;
+  role: "mentee" | "mentor" | "admin";
+  assignedTo: AssignedTo | null;
+}
 
-  // useChat returns messages, members, typingUsers, sendTypingEvent, sendMessageOptimistic, markAsRead
-  const {
-    messages,
-    members,
-    typingUsers,
-    sendTypingEvent,
-    sendMessageOptimistic,
-    markAsRead,
-    setMessages,
-  } = useChat({
-    channelName,
-    user: { id: currentUser.id, name: currentUser.name },
-  });
+const MenteeDashboard = () => {
+  const router = useRouter();
+  const user = useSelector((state: any) => state.auth.user);
+  const [isChecking, setIsChecking] = useState(false);
+  const [chatExists, setChatExists] = useState(false);
 
-  const [mentor, setMentor] = useState<any | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
+  // --- Core Logic: Check Chat and Redirect ---
+  const checkAssignmentAndChat = useCallback(
+    async (profile: UserProfile) => {
+      const menteeId = profile.id;
+      const mentorId = profile.assignedTo?.id;
 
-  // derive online state for mentor from members map (presence channel user_id keys)
-  const mentorOnline = Boolean(
-    Object.keys(members || {}).find((id) => id === mentorId)
-  );
-
-  // fetch mentor profile separately (optional — hook only loads messages/history)
-  useEffect(() => {
-    let mounted = true;
-    async function loadMentor() {
+      const chatDocId = [menteeId, mentorId].sort().join("_");
       try {
-        const res = await fetch(`/api/users/${encodeURIComponent(mentorId)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!mounted) return;
-        setMentor(data.user || null);
-      } catch (err) {
-        console.warn("fetch mentor error", err);
-      }
-    }
-    loadMentor();
-    return () => {
-      mounted = false;
-    };
-  }, [mentorId]);
+        setIsChecking(true);
+        const chatRef = doc(db, "chats", chatDocId);
+        const chatSnap = await getDoc(chatRef);
 
-  // handle message send (optimistic + upload)
-  const handleSend = useCallback(
-    async (payload: {
-      text?: string;
-      imageFile?: File | null;
-      audioFile?: Blob | null;
-    }) => {
-      const body: any = { channel: channelName };
-
-      if (payload.text) body.content = payload.text;
-
-      // upload image if present
-      if (payload.imageFile) {
-        const fd = new FormData();
-        fd.append("file", payload.imageFile);
-        try {
-          const r = await fetch("/api/upload", { method: "POST", body: fd });
-          if (r.ok) {
-            const data = await r.json();
-            body.imageUrl = data.url;
-          }
-        } catch (e) {
-          console.error("image upload error", e);
+        if (chatSnap.exists()) {
+          setChatExists(true);
+          return;
         }
-      }
-
-      // upload audio if present
-      if (payload.audioFile) {
-        const fd = new FormData();
-        fd.append("file", payload.audioFile);
-        try {
-          const r = await fetch("/api/upload", { method: "POST", body: fd });
-          if (r.ok) {
-            const data = await r.json();
-            body.audioUrl = data.url;
-          }
-        } catch (e) {
-          console.error("audio upload error", e);
-        }
-      }
-
-      // send via the hook's optimistic sender
-      // sendMessageOptimistic expects content string — if you have attachments,
-      // adapt the hook or send JSON string. Here we handle common case:
-      const contentParts: string[] = [];
-      if (body.content) contentParts.push(body.content);
-      if (body.imageUrl) contentParts.push(`[image:${body.imageUrl}]`);
-      if (body.audioUrl) contentParts.push(`[audio:${body.audioUrl}]`);
-      const finalContent = contentParts.join(" ");
-
-      try {
-        await sendMessageOptimistic(finalContent);
-      } catch (err) {
-        // send failed -> you can surface error UI or retry
-        console.warn("send failed", err);
+      } catch (error: any) {
+        toast.error(error?.message);
+      } finally {
+        setIsChecking(false);
       }
     },
-    [channelName, sendMessageOptimistic]
+    [router]
   );
 
-  // typing handler -> call hook's sendTypingEvent
-  const handleTyping = useCallback(() => {
-    sendTypingEvent(channelName);
-  }, [channelName, sendTypingEvent]);
+  useEffect(() => {
+    if (user && user?.role === "mentee") {
+      checkAssignmentAndChat(user as UserProfile);
+    } else if (user) {
+      // Handle non-mentee roles redirecting away or showing admin/mentor dashboard
+      setIsChecking(false);
+    }
+  }, [user, checkAssignmentAndChat]);
 
-  // open image (same behaviour as before)
-  const onImageClick = useCallback((url: string) => {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }, []);
+  if (!user?.assignedTo?.id) {
+    return (
+      <div className="p-8">
+        <div
+          style={{ backgroundImage: `url('/mentee-bg.png')` }}
+          className="w-full rounded-[30px] bg-no-repeat bg-top bg-cover py-10 lg:px-12 md:px-8 px-6"
+        >
+          <div className="lg:w-[55%] w-full flex flex-col gap-3">
+            <h1 className="font-header text-zinc-800 md:text-2xl text-xl font-semibold">
+              Welcome to your Dashboard!
+            </h1>
+            <p className="text-zinc-700">
+              We're still working hard to find the perfect mentor match for you.
+              You'll receive a notification and see a chat link appear here once
+              you've been assigned!
+            </p>
 
+            <Link
+              href="/"
+              className="hove hover:cursor-pointer textlg font-semibold text-zinc-700"
+            >
+              Go Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // State: Assigned, but chat redirection did not occur (displaying modal/loader)
   return (
-    <div className="w-full h-[98vh] flex flex-col bg-white dark:bg-black">
-      {/* Header */}
-      <div className="p-3.5 flex items-center gap-3 border-b border-slate-200 dark:border-gray-800 shrink-0">
-        {mentor ? (
-          <AvatarWithStatus
-            user={mentor}
-            online={mentorOnline}
-            // typing={Object.values(typingUsers).length > 0}
-            onClick={() => setShowProfile(true)}
+    <div className="p-8">
+      <div className="flex flex-col items-center justify-center h-screen px-6 text-center bg-white dark:bg-neutral-900">
+        {/* Avatar Group */}
+        <div className="relative flex gap-4 mb-8">
+          {/* Mentee */}
+          <ImageAvatar
+            src={user?.photoURL}
+            name={user?.name || "Mentee"}
+            className=" left-0 top-6 -rotate-6 shadow-xl"
           />
-        ) : (
-          <div className="text-sm text-muted">Loading mentor…</div>
+
+          <ImageAvatar
+            src={user?.assignedTo?.photoURL}
+            name={user?.assignedTo?.name || "Mentor"}
+            className="-ml-8 z-40 rotate-12 shadow-xl"
+          />
+        </div>
+
+        {/* Congratulations Text */}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="md:text-2xl text-xl font-semibold text-neutral-900 dark:text-neutral-100"
+        >
+          Congratulations!
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="text-neutral-700 dark:text-neutral-300 mt-2 max-w-sm"
+        >
+          We’ve matched you with{" "}
+          <span className="font-medium text-primary-600 dark:text-primary-400">
+            {user?.assignedTo?.name}
+          </span>
+          .
+        </motion.p>
+
+        {/* Subtext */}
+        {isChecking && (
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="text-neutral-500 dark:text-neutral-400 text-sm font-medium mt-6 max-w-xs"
+          >
+            We’re currently setting up your chat room...
+          </motion.p>
+        )}
+
+        {chatExists && (
+          <button
+            onClick={() =>
+              router.push(
+                `/mentee/chat/${[user?.id, user?.assignedTo?.id]
+                  .sort()
+                  .join("_")}`
+              )
+            }
+            className="mt-6 px-4 md:px-6 py-2.5 text-lg hover:cursor-pointer bg-black text-white rounded-md shadow-sm font-medium hover:bg-black/90 transition-colors"
+          >
+            Go to Chat
+          </button>
         )}
       </div>
-
-      {/* Chat Window */}
-      <div className="flex-1 overflow-y-auto">
-        <ChatWindow
-          messages={messages as ChatMessage[]}
-          currentUser={currentUser}
-          mentor={mentor}
-          onImageClick={onImageClick}
-          onMarkRead={(id: string) => markAsRead(id)}
-          typingUsers={typingUsers}
-        />
-      </div>
-
-      {/* Input */}
-      <div className="shrink-0">
-        <MessageInput onSend={handleSend} sendTypingEvent={handleTyping} />
-      </div>
-
-      <ProfileModal
-        user={mentor}
-        show={showProfile}
-        onClose={() => setShowProfile(false)}
-      />
     </div>
   );
 };
 
-export default ChatPage;
+export default MenteeDashboard;

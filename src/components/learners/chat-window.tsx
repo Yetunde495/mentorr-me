@@ -27,6 +27,8 @@ export const ChatWindow: React.FC<{
     .map((u) => u.name)
     .join(", ");
 
+    console.log(messages)
+
   return (
     <div className="flex-1 flex flex-col h-full mx-auto max-w-5xl">
       {/* Chat body */}
@@ -40,7 +42,7 @@ export const ChatWindow: React.FC<{
 
             {/* Messages */}
             {group.items.map((msg: ChatMessage) => {
-              const isMine = msg.senderId === currentUser.id;
+              const isMine = msg.senderId === currentUser.id || msg.senderId === currentUser?.uid;
 
               return (
                 <div
@@ -50,10 +52,9 @@ export const ChatWindow: React.FC<{
                     if (!isMine && onMarkRead) onMarkRead(msg.id);
                   }}
                 >
-                  {/* Alignment: mine → right | theirs → left */}
                   <div
                     className={`flex w-full ${
-                      isMine ? "justify-end flex-row-reverse" : "justify-start"
+                      isMine ? "justify-end" : "justify-start"
                     }`}
                   >
                     <MessageBubble

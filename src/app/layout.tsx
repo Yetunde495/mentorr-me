@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import ReduxProvider from "./ReduxProvider";
+import { Toaster } from "sonner";
 
 const dmsans = DM_Sans({
   subsets: ["latin"],
@@ -11,7 +12,8 @@ const dmsans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "CurateLearn PivotLab – Learn, Build Skills, and Grow with Guided Mentorship",
+  title:
+    "CurateLearn PivotLab – Learn, Build Skills, and Grow with Guided Mentorship",
   description:
     "PivotLab by CurateLearn helps learners build real skills through structured lessons, mentor guidance, hands-on tasks, and interactive assessments.",
   generator: "Next.js",
@@ -38,7 +40,8 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL("https://curatelearn.com"),
   openGraph: {
-    title: "CurateLearn PivotLab – Learn with Mentors, Build Skills with Projects",
+    title:
+      "CurateLearn PivotLab – Learn with Mentors, Build Skills with Projects",
     description:
       "A new way to learn: structured lessons, mentor support, task labeling, assessments, and progress tracking — all in one powerful platform.",
     url: "https://curatelearn.com",
@@ -60,7 +63,6 @@ export const metadata: Metadata = {
   },
 };
 
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -77,7 +79,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <main className="">{children}</main>
-           
+            <Toaster position="top-right" richColors />
           </ThemeProvider>
         </ReduxProvider>
       </body>
