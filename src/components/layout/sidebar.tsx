@@ -28,7 +28,7 @@ function Sidebar() {
   const router = useRouter();
   const user = useSelector((state: any) => state.auth.user);
 
-  const mentorChats = user?.role === "mentor" ? user.assignedMentees || [] : [];
+  const mentees = user?.role === "mentor" ? user.assignedMentees || [] : [];
 
   const logout = async () => {
     try {
@@ -40,6 +40,16 @@ function Sidebar() {
       console.error("Logout Error:", error);
       alert("Logout failed. Please try again.");
     }
+  };
+
+  const handleToggleRole = () => {
+    dispatch(
+      setUser({
+        ...user,
+        role: user?.role === "mentor" ? "student" : "mentor",
+      })
+    );
+    router.push(`/${user?.role}/dashboard`);
   };
 
   return (
@@ -68,7 +78,7 @@ function Sidebar() {
           user,
           role: user?.role,
           collapsed: false,
-          mentorChats,
+          mentees,
           darkMode,
           toggleRole: () => {
             dispatch(
@@ -97,16 +107,9 @@ function Sidebar() {
           user,
           role: user?.role,
           collapsed,
-          mentorChats,
+          mentees,
           darkMode,
-          toggleRole: () => {
-            dispatch(
-              setUser({
-                ...user,
-                role: user?.role === "mentor" ? "student" : "mentor",
-              })
-            );
-          },
+          toggleRole: handleToggleRole,
           toggleTheme: () => setDarkMode(!darkMode),
           logout: () => logout(),
           selectChat: (id: string | undefined) => console.log("open chat:", id),
@@ -204,14 +207,14 @@ function renderSidebarContent({
       </div>
 
       {/* MENTOR CHAT LIST */}
-      {role === "mentor" && mentees.length > 0 && (
+      {role === "mentor" && mentees?.length > 0 && (
         <div className="px-3 mt-2 flex-1 overflow-y-auto">
           {!collapsed && (
             <p className="text-xs uppercase opacity-60 mb-2">Your Mentees</p>
           )}
 
           <div className="space-y-2">
-            {mentees.map((mentee: any) => (
+            {mentees?.map((mentee: any) => (
               <button
                 key={mentee?.id}
                 className="flex items-center gap-3 w-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl"

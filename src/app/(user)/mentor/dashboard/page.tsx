@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 import { db } from "@/lib/services/firebase";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ImageAvatar } from "@/components/ui/avatar";
+import Avatar, { ImageAvatar } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { MessageSquare, Zap } from "lucide-react";
 
@@ -50,24 +50,24 @@ const MentorDashboard = () => {
   // --- 1. No Assigned Mentees ---
   if (assignedMentees.length === 0) {
     return (
-      <div className="p-8 min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <div className="p-8 min-h-screen">
         <div
           style={{ backgroundImage: `url('/mentor-bg.png')` }}
-          className="w-full rounded-[30px] bg-no-repeat bg-center bg-cover py-16 lg:px-12 md:px-8 px-6 bg-blue-50/50 dark:bg-neutral-800/50 shadow-lg"
+          className="w-full rounded-[30px] bg-no-repeat bg-top bg-cover py-10 lg:px-12 md:px-8 px-6"
         >
-          <div className="lg:w-[55%] w-full flex flex-col gap-3 backdrop-blur-sm bg-white/70 dark:bg-neutral-900/70 p-6 rounded-xl">
-            <h1 className="font-header text-zinc-800 dark:text-zinc-100 md:text-2xl text-xl font-semibold">
+          <div className="lg:w-[55%] w-full flex flex-col gap-3">
+            <h1 className="font-header text-zinc-900 md:text-2xl text-xl font-semibold">
               Welcome, {user.name}!
             </h1>
-            <p className="text-zinc-700 dark:text-zinc-300">
-              Thank you for being a mentor. You currently do not have any
-              mentees assigned to you. Once an administrator pairs you with a
-              mentee, they will appear below and you can start chatting!
+            <p className="text-zinc-800 font-medium">
+              You currently do not have any mentees assigned to you. Once an
+              administrator pairs you with a mentee, they will appear below and
+              you can start chatting!
             </p>
 
             <a
               href="/"
-              className="mt-4 inline-block w-fit text-lg font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+              className="hover hover:cursor-pointer text-lg font-semibold text-zinc-900"
             >
               Go Home
             </a>
@@ -79,10 +79,24 @@ const MentorDashboard = () => {
 
   return (
     <div className="p-6 md:p-8 space-y-8 min-h-screen bg-neutral-50 dark:bg-neutral-900">
-      <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-neutral-100 border-b pb-3 border-neutral-200 dark:border-neutral-700">
-        My Assigned Mentees ({assignedMentees.length})
-      </h1>
-
+      <div className="pb-8">
+        <div
+          style={{ backgroundImage: `url('/mentor-bg.png')` }}
+          className="w-full rounded-[30px] bg-no-repeat bg-top bg-cover py-10 lg:px-12 md:px-8 px-6"
+        >
+          <div className="lg:w-[55%] w-full flex flex-col gap-3">
+            <h1 className="font-header text-zinc-900 md:text-2xl text-xl font-semibold">
+              Welcome, {user.name}!
+            </h1>
+            <p className="text-zinc-800 font-medium">
+              You currently have {assignedMentees?.length || 0} active mentee(s).
+              Tap 'Start Chat' to jump straight
+              into their conversation room and begin guiding them on their
+              journey.
+            </p>
+          </div>
+        </div>
+      </div>
       <motion.div
         className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
         initial="hidden"
@@ -94,7 +108,7 @@ const MentorDashboard = () => {
         {assignedMentees.map((mentee: any) => (
           <motion.div
             key={mentee.id}
-            className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between"
+            className="bg-white dark:bg-neutral-800 p-6 rounded-2xl shadow-md shadow-orange-300 hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between"
             variants={{
               hidden: { opacity: 0, y: 20 },
               visible: { opacity: 1, y: 0 },
@@ -102,42 +116,24 @@ const MentorDashboard = () => {
           >
             <div>
               <div className="flex items-start space-x-4 mb-4">
-                <ImageAvatar
-                  src={mentee.photoURL}
-                  name={mentee.name}
-                  className="w-16 h-16 min-w-16"
-                />
+                <Avatar src={mentee.photoURL} name={mentee.name} className="" />
                 <div className="flex-1 pt-1">
-                  <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                    {mentee.name}
-                  </h2>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
-                    {mentee.email}
-                  </p>
+                  <h2 className="text-xl font-semibold">{mentee.name}</h2>
+                  <p className="text-sm truncate">{mentee?.email}</p>
                 </div>
               </div>
 
               <div className="mt-4 space-y-3">
-                <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300 bg-yellow-50 dark:bg-yellow-900/30 p-2 rounded-md">
-                  <Zap className="w-4 h-4 mr-2 text-yellow-600 dark:text-yellow-400" />
-                  <span className="font-medium">Skill Focus:</span>{" "}
-                  {mentee.skillFocus || "Not Specified"}
-                </div>
-
-                <p className="text-sm text-neutral-700 dark:text-neutral-300 pt-3">
-                  <span className="font-medium block mb-1 text-neutral-900 dark:text-neutral-100">
-                    Mentee Profile Notes:
-                  </span>
-                  {
-                    "This is where a summary of the mentee's bio and experience would be displayed. Click 'Start Chat' to view their full profile within the conversation."
-                  }
+                <p className="text-sm pt-3">
+                  <span className="font-medium block mb-1">Mentee Bio:</span>
+                  {mentee.bio || "No bio specified."}
                 </p>
               </div>
             </div>
 
             <button
               onClick={() => handleChatNavigation(mentee.chatId)}
-              className="mt-6 w-full flex items-center justify-center px-4 py-2.5 text-lg font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-xl transform hover:scale-[1.01] active:scale-[0.99]"
+              className="mt-6 w-full flex items-center justify-center px-4 py-2.5 text-lg font-medium text-white bg-black rounded-lg hover:bg-black/90 dark:bg-white dark:text-orange-500 dark:hover:bg-white/90 transition-colors shadow-xl transform hover:scale-[1.01] active:scale-[0.99]"
             >
               <MessageSquare className="w-5 h-5 mr-2" />
               Start Chat

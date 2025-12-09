@@ -76,10 +76,10 @@ const MenteeDashboard = () => {
           className="w-full rounded-[30px] bg-no-repeat bg-top bg-cover py-10 lg:px-12 md:px-8 px-6"
         >
           <div className="lg:w-[55%] w-full flex flex-col gap-3">
-            <h1 className="font-header text-zinc-800 md:text-2xl text-xl font-semibold">
+            <h1 className="font-header text-zinc-900 md:text-2xl text-xl font-semibold">
               Welcome to your Dashboard!
             </h1>
-            <p className="text-zinc-700">
+            <p className="text-zinc-800">
               We're still working hard to find the perfect mentor match for you.
               You'll receive a notification and see a chat link appear here once
               you've been assigned!
@@ -87,7 +87,7 @@ const MenteeDashboard = () => {
 
             <Link
               href="/"
-              className="hove hover:cursor-pointer textlg font-semibold text-zinc-700"
+              className="hover hover:cursor-pointer text-lg font-semibold text-zinc-900"
             >
               Go Home
             </Link>
