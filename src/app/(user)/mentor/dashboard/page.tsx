@@ -1,172 +1,152 @@
 "use client";
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { ChatWindow } from "@/components/learners/chat-window";
-import { MessageInput } from "@/components/learners/message-input";
-import { AvatarWithStatus } from "@/components/chat/avatar";
-import { ProfileModal } from "@/components/mentors/profile-modal";
-import { useChat } from "@/hooks/use-chat-channel";
-import { ChatMessage } from "@/types/chat";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { useSelector } from "react-redux";
+import { db } from "@/lib/services/firebase";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { ImageAvatar } from "@/components/ui/avatar";
+import { toast } from "sonner";
+import { MessageSquare, Zap } from "lucide-react";
 
-const ChatPage: React.FC = () => {
-  // replace with router or auth values as needed
-  const mentorId = "mentor-1";
-  const currentUser = { id: "student-123", name: "You" };
+interface AssignedTo {
+  id: string;
+  name: string;
+  photoURL?: string;
+  chatId?: string;
+}
 
-  // Use a presence channel name so the hook receives members info
-  const channelName = `presence-chat-${mentorId}-${currentUser.id}`;
+interface UserProfile {
+  id: string;
+  role: "mentee" | "mentor" | "admin";
+  assignedTo: AssignedTo | null;
+}
 
-  // useChat returns messages, members, typingUsers, sendTypingEvent, sendMessageOptimistic, markAsRead
-  const {
-    messages,
-    members,
-    typingUsers,
-    sendTypingEvent,
-    sendMessageOptimistic,
-    markAsRead,
-    setMessages,
-  } = useChat({
-    channelName,
-    user: { id: currentUser.id, name: currentUser.name },
-  });
+const MentorDashboard = () => {
+  const user = useSelector((state: any) => state.auth.user);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [mentor, setMentor] = useState<any | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const assignedMentees = user?.assignedMentees || [];
 
-  // derive online state for mentor from members map (presence channel user_id keys)
-  const mentorOnline = Boolean(
-    Object.keys(members || {}).find((id) => id === mentorId)
-  );
-
-  // fetch mentor profile separately (optional — hook only loads messages/history)
   useEffect(() => {
-    let mounted = true;
-    async function loadMentor() {
-      try {
-        const res = await fetch(`/api/users/${encodeURIComponent(mentorId)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!mounted) return;
-        setMentor(data.user || null);
-      } catch (err) {
-        console.warn("fetch mentor error", err);
-      }
+    if (user !== undefined) {
+      setIsLoading(false);
     }
-    loadMentor();
-    return () => {
-      mounted = false;
-    };
-  }, [mentorId]);
+  }, [user]);
 
-  // handle message send (optimistic + upload)
-  const handleSend = useCallback(
-    async (payload: {
-      text?: string;
-      imageFile?: File | null;
-      audioFile?: Blob | null;
-    }) => {
-      const body: any = { channel: channelName };
+  const handleChatNavigation = (chatId: string) => {
+    window.location.href = `/mentor/chat/${chatId}`;
+  };
 
-      if (payload.text) body.content = payload.text;
+  if (isLoading || !user) {
+    return (
+      <div className="p-8 flex items-center justify-center h-full min-h-screen bg-neutral-50 dark:bg-neutral-900">
+        <p className="text-xl text-neutral-500">Loading mentor profile...</p>
+      </div>
+    );
+  }
 
-      // upload image if present
-      if (payload.imageFile) {
-        const fd = new FormData();
-        fd.append("file", payload.imageFile);
-        try {
-          const r = await fetch("/api/upload", { method: "POST", body: fd });
-          if (r.ok) {
-            const data = await r.json();
-            body.imageUrl = data.url;
-          }
-        } catch (e) {
-          console.error("image upload error", e);
-        }
-      }
+  // --- 1. No Assigned Mentees ---
+  if (assignedMentees.length === 0) {
+    return (
+      <div className="p-8 min-h-screen bg-neutral-50 dark:bg-neutral-900">
+        <div
+          style={{ backgroundImage: `url('/mentor-bg.png')` }}
+          className="w-full rounded-[30px] bg-no-repeat bg-center bg-cover py-16 lg:px-12 md:px-8 px-6 bg-blue-50/50 dark:bg-neutral-800/50 shadow-lg"
+        >
+          <div className="lg:w-[55%] w-full flex flex-col gap-3 backdrop-blur-sm bg-white/70 dark:bg-neutral-900/70 p-6 rounded-xl">
+            <h1 className="font-header text-zinc-800 dark:text-zinc-100 md:text-2xl text-xl font-semibold">
+              Welcome, {user.name}!
+            </h1>
+            <p className="text-zinc-700 dark:text-zinc-300">
+              Thank you for being a mentor. You currently do not have any
+              mentees assigned to you. Once an administrator pairs you with a
+              mentee, they will appear below and you can start chatting!
+            </p>
 
-      // upload audio if present
-      if (payload.audioFile) {
-        const fd = new FormData();
-        fd.append("file", payload.audioFile);
-        try {
-          const r = await fetch("/api/upload", { method: "POST", body: fd });
-          if (r.ok) {
-            const data = await r.json();
-            body.audioUrl = data.url;
-          }
-        } catch (e) {
-          console.error("audio upload error", e);
-        }
-      }
-
-      // send via the hook's optimistic sender
-      // sendMessageOptimistic expects content string — if you have attachments,
-      // adapt the hook or send JSON string. Here we handle common case:
-      const contentParts: string[] = [];
-      if (body.content) contentParts.push(body.content);
-      if (body.imageUrl) contentParts.push(`[image:${body.imageUrl}]`);
-      if (body.audioUrl) contentParts.push(`[audio:${body.audioUrl}]`);
-      const finalContent = contentParts.join(" ");
-
-      try {
-        await sendMessageOptimistic(finalContent);
-      } catch (err) {
-        // send failed -> you can surface error UI or retry
-        console.warn("send failed", err);
-      }
-    },
-    [channelName, sendMessageOptimistic]
-  );
-
-  // typing handler -> call hook's sendTypingEvent
-  const handleTyping = useCallback(() => {
-    sendTypingEvent(channelName);
-  }, [channelName, sendTypingEvent]);
-
-  // open image (same behaviour as before)
-  const onImageClick = useCallback((url: string) => {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }, []);
+            <a
+              href="/"
+              className="mt-4 inline-block w-fit text-lg font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Go Home
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-[98vh] flex flex-col bg-white dark:bg-black">
-      {/* Header */}
-      <div className="p-3.5 flex items-center gap-3 border-b border-slate-200 dark:border-gray-800 shrink-0">
-        {mentor ? (
-          <AvatarWithStatus
-            user={mentor}
-            online={mentorOnline}
-            // typing={Object.values(typingUsers).length > 0}
-            onClick={() => setShowProfile(true)}
-          />
-        ) : (
-          <div className="text-sm text-muted">Loading mentor…</div>
-        )}
-      </div>
+    <div className="p-6 md:p-8 space-y-8 min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-neutral-100 border-b pb-3 border-neutral-200 dark:border-neutral-700">
+        My Assigned Mentees ({assignedMentees.length})
+      </h1>
 
-      {/* Chat Window */}
-      <div className="flex-1 overflow-y-auto">
-        <ChatWindow
-          messages={messages as ChatMessage[]}
-          currentUser={currentUser}
-          mentor={mentor}
-          onImageClick={onImageClick}
-          onMarkRead={(id: string) => markAsRead(id)}
-          typingUsers={typingUsers}
-        />
-      </div>
+      <motion.div
+        className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          visible: { transition: { staggerChildren: 0.1 } },
+        }}
+      >
+        {assignedMentees.map((mentee: any) => (
+          <motion.div
+            key={mentee.id}
+            className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between"
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0 },
+            }}
+          >
+            <div>
+              <div className="flex items-start space-x-4 mb-4">
+                <ImageAvatar
+                  src={mentee.photoURL}
+                  name={mentee.name}
+                  className="w-16 h-16 min-w-16"
+                />
+                <div className="flex-1 pt-1">
+                  <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                    {mentee.name}
+                  </h2>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                    {mentee.email}
+                  </p>
+                </div>
+              </div>
 
-      {/* Input */}
-      <div className="shrink-0">
-        <MessageInput onSend={handleSend} sendTypingEvent={handleTyping} />
-      </div>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300 bg-yellow-50 dark:bg-yellow-900/30 p-2 rounded-md">
+                  <Zap className="w-4 h-4 mr-2 text-yellow-600 dark:text-yellow-400" />
+                  <span className="font-medium">Skill Focus:</span>{" "}
+                  {mentee.skillFocus || "Not Specified"}
+                </div>
 
-      <ProfileModal
-        user={mentor}
-        show={showProfile}
-        onClose={() => setShowProfile(false)}
-      />
+                <p className="text-sm text-neutral-700 dark:text-neutral-300 pt-3">
+                  <span className="font-medium block mb-1 text-neutral-900 dark:text-neutral-100">
+                    Mentee Profile Notes:
+                  </span>
+                  {
+                    "This is where a summary of the mentee's bio and experience would be displayed. Click 'Start Chat' to view their full profile within the conversation."
+                  }
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleChatNavigation(mentee.chatId)}
+              className="mt-6 w-full flex items-center justify-center px-4 py-2.5 text-lg font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-xl transform hover:scale-[1.01] active:scale-[0.99]"
+            >
+              <MessageSquare className="w-5 h-5 mr-2" />
+              Start Chat
+            </button>
+          </motion.div>
+        ))}
+      </motion.div>
     </div>
   );
 };
 
-export default ChatPage;
+export default MentorDashboard;

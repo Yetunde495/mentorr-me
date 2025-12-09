@@ -13,6 +13,7 @@ interface AssignedTo {
   id: string;
   name: string;
   photoURL?: string;
+  chatId?: string;
 }
 
 interface UserProfile {
@@ -27,29 +28,35 @@ const MenteeDashboard = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [chatExists, setChatExists] = useState(false);
 
-  // --- Core Logic: Check Chat and Redirect ---
+  // Check if Chat exists
+
   const checkAssignmentAndChat = useCallback(
     async (profile: UserProfile) => {
-      const menteeId = profile.id;
-      const mentorId = profile.assignedTo?.id;
+      const chatId = profile.assignedTo?.chatId;
 
-      const chatDocId = [menteeId, mentorId].sort().join("_");
+      if (!chatId) {
+        setChatExists(false);
+        return;
+      }
+
       try {
         setIsChecking(true);
-        const chatRef = doc(db, "chats", chatDocId);
+        const chatRef = doc(db, "chats", chatId);
         const chatSnap = await getDoc(chatRef);
 
         if (chatSnap.exists()) {
           setChatExists(true);
           return;
         }
+        setChatExists(false);
       } catch (error: any) {
         toast.error(error?.message);
+        setChatExists(false);
       } finally {
         setIsChecking(false);
       }
     },
-    [router]
+    []
   );
 
   useEffect(() => {

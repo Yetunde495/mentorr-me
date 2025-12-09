@@ -28,23 +28,7 @@ function Sidebar() {
   const router = useRouter();
   const user = useSelector((state: any) => state.auth.user);
 
-  const mentorChats =
-    user?.role === "mentor"
-      ? [
-          {
-            id: "1",
-            name: "Chinonso",
-            avatar: "/img/a1.png",
-            lastMessage: "Okay mentor, thank you!",
-          },
-          {
-            id: "2",
-            name: "Maryam",
-            avatar: "/img/a2.png",
-            lastMessage: "I'll finish the assignment today.",
-          },
-        ]
-      : [];
+  const mentorChats = user?.role === "mentor" ? user.assignedMentees || [] : [];
 
   const logout = async () => {
     try {
@@ -129,14 +113,15 @@ function Sidebar() {
         })}
       </motion.div>
       <div>
-       <button
-        onClick={() => setCollapsed(!collapsed)}
-        className={`absolute ${collapsed ? '-right-6 top-8' : 'right-1 top-5'} cursor-pointer z-999 w-6 h-6 flex items-center justify-center rounded-full bg-white dark:bg-gray-900 border dark:border-gray-700 shadow`}
-      >
-        {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-      </button>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className={`absolute ${
+            collapsed ? "-right-6 top-8" : "right-1 top-5"
+          } cursor-pointer z-999 w-6 h-6 flex items-center justify-center rounded-full bg-white dark:bg-gray-900 border dark:border-gray-700 shadow`}
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
-      
     </aside>
   );
 }
@@ -145,7 +130,7 @@ function renderSidebarContent({
   user,
   role,
   collapsed,
-  mentorChats,
+  mentees,
   toggleRole,
   logout,
   selectChat,
@@ -219,28 +204,31 @@ function renderSidebarContent({
       </div>
 
       {/* MENTOR CHAT LIST */}
-      {role === "mentor" && mentorChats.length > 0 && (
+      {role === "mentor" && mentees.length > 0 && (
         <div className="px-3 mt-2 flex-1 overflow-y-auto">
           {!collapsed && (
             <p className="text-xs uppercase opacity-60 mb-2">Your Mentees</p>
           )}
 
           <div className="space-y-2">
-            {mentorChats.map((chat: any) => (
+            {mentees.map((mentee: any) => (
               <button
-                key={chat.id}
+                key={mentee?.id}
                 className="flex items-center gap-3 w-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl"
-                onClick={() => selectChat(chat.id)}
+                onClick={() => selectChat(mentee?.chatId)}
               >
-                <img
-                  src={chat.avatar}
-                  className="w-10 h-10 rounded-full mx-auto"
-                />
+                <div>
+                  <Avatar
+                    name={mentee?.name}
+                    src={mentee?.photoURL || ""}
+                    size={20}
+                  />
+                </div>
                 {!collapsed && (
                   <div className="flex flex-col text-left">
-                    <span className="font-medium text-sm">{chat.name}</span>
+                    <span className="font-medium text-sm">{mentee.name}</span>
                     <span className="text-xs opacity-60 truncate max-w-[140px]">
-                      {chat.lastMessage}
+                      {mentee?.lastMessage}
                     </span>
                   </div>
                 )}
