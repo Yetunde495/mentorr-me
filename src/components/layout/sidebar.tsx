@@ -49,7 +49,7 @@ function Sidebar() {
         role: user?.role === "mentor" ? "student" : "mentor",
       })
     );
-    router.push(`/${user?.role}/dashboard`);
+    router.push(`/${user?.role === "mentor" ? "mentee" : "mentor"}/dashboard`);
   };
 
   return (
