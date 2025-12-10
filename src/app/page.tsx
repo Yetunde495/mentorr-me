@@ -1,5 +1,4 @@
 "use client";
-
 import { motion } from "framer-motion";
 import FlipStack from "@/components/ui/flipstack";
 import { FlipWords } from "@/components/ui/flip-words";

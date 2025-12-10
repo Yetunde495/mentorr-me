@@ -11,7 +11,6 @@ import { useSelector } from "react-redux";
 const ChatPage: React.FC = () => {
   const user = useSelector((state: any) => state.auth.user);
   const partnerId = user?.assignedTo?.id;
-  // Determine which ID is the mentor and which is the mentee for channel consistency
   const [menteeId, mentorId, senderType] =
     user?.role === "mentor"
       ? [partnerId, user.id, "mentor" as const]
@@ -30,7 +29,7 @@ const ChatPage: React.FC = () => {
   } = useChat({
     channelName,
     channelId: chatDocId,
-    user: { id: user?.id ||user?.uid, name: user?.name },
+    user: { id: user?.id ||user?.uid, name: user?.name, role: user?.role },
     partnerId: partnerId,
     senderType: senderType,
   });
@@ -54,10 +53,9 @@ const ChatPage: React.FC = () => {
     }) => {
       let fileUrl: string | undefined = undefined;
       let messageType: ChatMessage["type"] = "text";
-      const content = payload.text || ""; // Default content to text if file is uploaded
+      const content = payload.text || "";
 
       try {
-        // A. Handle Image Upload
         if (payload.imageFile) {
           const fd = new FormData();
           fd.append("file", payload.imageFile);
@@ -77,14 +75,9 @@ const ChatPage: React.FC = () => {
           fileUrl = data.url;
           messageType = "audio";
         }
-
-        // C. Send via the hook's optimistic sender, passing type and fileUrl
-        // The content is used for text/caption, fileUrl for the asset link.
         await sendMessageOptimistic(content, messageType, fileUrl);
       } catch (err) {
-        // send failed -> you can surface error UI or retry
         console.warn("send failed", err);
-        // You might want to update the latest message's status to 'failed' here
       }
     },
     [sendMessageOptimistic]
@@ -102,7 +95,7 @@ const ChatPage: React.FC = () => {
         {user?.assignedTo ? (
           <AvatarWithStatus
             user={user?.assignedTo}
-            online={partnerOnline} // Changed to partnerOnline
+            online={partnerOnline}
             onClick={() => setShowProfile(true)}
           />
         ) : (

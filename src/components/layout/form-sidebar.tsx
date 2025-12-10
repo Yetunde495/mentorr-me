@@ -1,10 +1,9 @@
 "use client";
-import { X } from "lucide-react";
 
-export default function FormSidebar({
-  onClose,
+export default function LabelingForm({
+  
 }: {
-  onClose: () => void;
+  
 }) {
   return (
     <div className="w-full h-full flex flex-col">
@@ -13,10 +12,7 @@ export default function FormSidebar({
       <div className="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800">
         <h2 className="font-semibold text-lg">Curriculum Builder</h2>
 
-        {/* Mobile close */}
-        <button onClick={onClose} className="md:hidden p-1">
-          <X className="w-5 h-5" />
-        </button>
+        
       </div>
 
       {/* Form */}

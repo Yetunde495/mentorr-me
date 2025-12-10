@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
     // --- 3. PUSHER: BROADCAST MESSAGE (Real-time update) ---
     // The channel name must match the one used by clients for subscription
-    const pusherChannel = `chat-${chatDocId}`;
+    const pusherChannel = `presence-chat-${chatDocId}`;
 
     // The message sent to Pusher includes the temporary client ID for confirmation
     await pusher.trigger(pusherChannel, CHAT_EVENT, {

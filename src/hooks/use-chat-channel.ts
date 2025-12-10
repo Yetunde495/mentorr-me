@@ -9,12 +9,12 @@ import { toast } from "sonner";
 interface UseChatOptions {
   channelName: string | null | undefined;
   channelId: string;
-  user: { id: string; name: string };
+  user: { id: string; name: string; role: string };
   partnerId: string; // The ID of the other user in the chat
   senderType: "mentor" | "mentee"; // The role of the current user
 }
 
-export function useChatChannel(
+function useChatChannel(
   channelName: string | null | undefined,
   onMessage: (data: any) => void
 ) {
@@ -67,66 +67,61 @@ export function useChat({
   const channelRef = useRef<any>(null);
   const authUser = auth.currentUser;
 
-  // /src/hooks/useChat.ts (Inside the useChat function)
-
-  // ... (existing state and refs) ...
-  // The channelName you pass to the hook IS the chatDocId (e.g., 'mentor-1_student-123')
   const chatId = channelName;
 
   // helper: load initial history
- const loadHistory = useCallback(
+  const loadHistory = useCallback(
     async (channel: string) => {
-        if (!authUser) return; // Cannot fetch without an authenticated user
+      if (!authUser) return; // Cannot fetch without an authenticated user
 
-        try {
-            // 1. Get the Firebase ID token for secure server authentication
-            const token = await authUser.getIdToken();
+      try {
+        // 1. Get the Firebase ID token for secure server authentication
+        const token = await authUser.getIdToken();
 
-            // 2. Use axios for a simpler, centralized request structure
-            const response = await axios.get(
-                `/api/chat/${encodeURIComponent(channel)}/messages`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`, // Send the token for server verification
-                    },
-                }
-            );
+        // 2. Use axios for a simpler, centralized request structure
+        const response = await axios.get(
+          `/api/chat/${encodeURIComponent(channel)}/messages`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`, // Send the token for server verification
+            },
+          }
+        );
 
-            // 3. Axios handles the 2xx status check automatically.
-            // If the request succeeds, process the data.
-            console.log(response)
-            const data = response.data;
-            
-            setMessages(data.messages ?? []);
+        // 3. Axios handles the 2xx status check automatically.
+        // If the request succeeds, process the data.
+        console.log(response);
+        const data = response.data;
 
-        } catch (error) {
-            // 4. Centralized error handling using sonner
-            console.log(error)
-            let errorMessage = "Failed to load chat history. Please try refreshing.";
+        setMessages(data.messages ?? []);
+      } catch (error) {
+        // 4. Centralized error handling using sonner
+        console.log(error);
+        let errorMessage =
+          "Failed to load chat history. Please try refreshing.";
 
-            if (axios.isAxiosError(error) && error.response) {
-                const status = error.response.status;
+        if (axios.isAxiosError(error) && error.response) {
+          const status = error.response.status;
 
-                if (status === 401 || status === 403) {
-                    errorMessage = "Authentication failed. Please log in again.";
-                } else if (status === 404) {
-                    errorMessage = "Chat not found or recently created. Try again in a moment.";
-                } else {
-                    // Generic API error (e.g., 500 from server)
-                    errorMessage = `Server Error (${status}): Could not retrieve messages.`;
-                }
-            }
-            
-            console.error("loadHistory error:", error);
-            
-            // Display the user-friendly toast message
-            toast.error(errorMessage);
+          if (status === 401 || status === 403) {
+            errorMessage = "Authentication failed. Please log in again.";
+          } else if (status === 404) {
+            errorMessage =
+              "Chat not found or recently created. Try again in a moment.";
+          } else {
+            // Generic API error (e.g., 500 from server)
+            errorMessage = `Server Error (${status}): Could not retrieve messages.`;
+          }
         }
+
+        console.error("loadHistory error:", error);
+
+        // Display the user-friendly toast message
+        toast.error(errorMessage);
+      }
     },
     [authUser]
-);
-
-
+  );
 
   useEffect(() => {
     if (!channelName) return;
@@ -135,11 +130,10 @@ export function useChat({
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY as string, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER as string,
       authEndpoint: "/api/pusher/auth",
-      // enable stats if you want: disableStats: false
     });
     pusherRef.current = pusher;
 
-    // presence channel gives members list and member_* events
+    // presence channel
     const channel = pusher.subscribe(channelName);
     channelRef.current = channel;
 
@@ -180,47 +174,53 @@ export function useChat({
 
     // New message
     channel.bind("new-message", (data: ChatMessage) => {
-      // if message is from another device of this same user, we still add it,
-      // but if that device already added optimistic message with temp id, replace it
       setMessages((prev) => {
-        // if message.id already exists, skip
         if (prev.find((m) => m.id === data.id)) return prev.concat(); // no change
         return [...prev, { ...data, status: "sent" }];
       });
+      console.log('binded')
 
-      // Optionally auto-send "delivered" receipt for other sender
-      // If message.senderId !== user.id -> notify delivered
-      if (data.senderId !== user.id) {
-        // fire delivered receipt (non-blocking)
-        fetch("/api/pusher/receipt", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            channel: channelName,
-            messageId: data.id,
-            type: "delivered",
-          }),
-        }).catch((e) => console.warn("receipt error", e));
-      }
+      // if (data.senderId !== user.id) {
+      //   fetch("/api/pusher/receipt", {
+      //     method: "POST",
+      //     headers: { "Content-Type": "application/json" },
+      //     body: JSON.stringify({
+      //       channel: channelName,
+      //       messageId: data.id,
+      //       type: "delivered",
+      //     }),
+      //   }).catch((e) => console.warn("receipt error", e));
+      // }
     });
 
     // Typing indicator
     channel.bind(
       "typing",
       (d: { userId: string; name: string; at: string }) => {
-        if (d.userId === user.id) return; // ignore our own typing echoes
+        if (d.userId === user.id) return;
+
         setTypingUsers((prev) => ({
           ...prev,
           [d.userId]: { name: d.name, at: d.at },
         }));
-        // clear after 4s
-        setTimeout(() => {
+
+        const timeoutKey = `typingTimeout_${d.userId}`;
+        const existingTimeout = (window as any)[timeoutKey];
+        if (existingTimeout) {
+          window.clearTimeout(existingTimeout);
+        }
+
+        // Set new timeout for cleanup after 4s
+        const newTimeout = window.setTimeout(() => {
           setTypingUsers((prev) => {
             const copy = { ...prev };
             delete copy[d.userId];
             return copy;
           });
-        }, 4000);
+          delete (window as any)[timeoutKey];
+        }, 4000) as unknown as number;
+
+        (window as any)[timeoutKey] = newTimeout;
       }
     );
 
@@ -243,7 +243,6 @@ export function useChat({
       }
     );
 
-    // Multi-device sync event examples:
     // You can define custom events like "message-updated" for edits or "message-deleted"
     channel.bind("message-updated", (payload: any) => {
       setMessages((prev) =>
@@ -328,25 +327,34 @@ export function useChat({
 
     // Add optimistic message locally
     setMessages((prev) => [...prev, tempMsg]);
-
-    // ----------------------------------------------------
-    // 2. SERVER PERSISTENCE VIA YOUR API
-    // ----------------------------------------------------
     try {
-      // API ENDPOINT: Use the chat sending function we designed: /api/chat/send
+      const token = await authUser?.getIdToken();
+      const socket_id = pusherRef.current?.connection.socket_id;
+
+      const apiPayload = {
+        channelId: channelId,
+        partnerId: partnerId,
+        senderType: senderType,
+        tempMessageId: tempId,
+        messageContent: content,
+        messageType: messageType,
+        fileUrl: fileUrl,
+        socket_id: socket_id,
+        mentorId: mentorId,
+        menteeId: menteeId,
+        message: tempMsg,
+      };
       const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mentorId: mentorId, // required by the server function
-          menteeId: menteeId, // required by the server function
-          message: tempMsg, 
-        }),
+        body: JSON.stringify(apiPayload),
       });
 
       if (!res.ok) throw new Error("Failed to save message");
 
       const saved = await res.json();
+      const permanentId = saved.messageId;
+      const returnedTempId = saved.tempMessageId;
 
       // The server response `saved.persistedMessage` now contains the final
       // server-generated timestamp and structure.
@@ -355,25 +363,25 @@ export function useChat({
         id: saved.persistedMessage.id, // The actual DB ID
       };
 
-      // ----------------------------------------------------
-      // 3. CLEANUP/REPLACE OPTIMISTIC MESSAGE
-      // ----------------------------------------------------
-
-      // The server function already handled the Pusher broadcast,
-      // so we *don't* need the second fetch to /api/pusher/send.
-      // We only need to replace the temp message locally.
-
       // Replace temp message in local state with the saved message
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? savedMessage : m))
+        prev.map((m) =>
+          m.id === returnedTempId
+            ? {
+                ...m,
+                id: permanentId,
+                status: "sent",
+              }
+            : m
+        )
       );
       return savedMessage;
     } catch (err) {
       console.error("sendMessageOptimistic error", err);
-      // mark sending failed
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...m, status: "failed" } : m))
       );
+      toast.error("Message failed to send. Check connection.");
       throw err;
     }
   }
@@ -401,7 +409,6 @@ export function useChat({
     members,
     typingUsers,
     sendTypingEvent,
-    // Update the returned function signature
     sendMessageOptimistic: (
       content: string,
       type?: ChatMessage["type"],

@@ -27,7 +27,7 @@ export const ChatWindow: React.FC<{
     .map((u) => u.name)
     .join(", ");
 
-    console.log(messages)
+    console.log(typingUsers)
 
   return (
     <div className="flex-1 flex flex-col h-full mx-auto max-w-5xl">

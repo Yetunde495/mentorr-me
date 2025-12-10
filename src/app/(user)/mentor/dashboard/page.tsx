@@ -2,13 +2,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { db } from "@/lib/services/firebase";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Avatar, { ImageAvatar } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { MessageSquare, Zap } from "lucide-react";
+import { setCurrentChat } from "@/features/chatSlice";
 
 interface AssignedTo {
   id: string;
@@ -24,10 +25,11 @@ interface UserProfile {
 }
 
 const MentorDashboard = () => {
+  const router = useRouter();
   const user = useSelector((state: any) => state.auth.user);
   const [isLoading, setIsLoading] = useState(true);
-
   const assignedMentees = user?.assignedMentees || [];
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (user !== undefined) {
@@ -35,9 +37,11 @@ const MentorDashboard = () => {
     }
   }, [user]);
 
-  const handleChatNavigation = (chatId: string) => {
-    window.location.href = `/mentor/chat/${chatId}`;
-  };
+
+   const handleChatNavigation = (chat: any) => {
+      dispatch(setCurrentChat(chat));
+      router.push(`/mentor/chat/${chat?.chatId}`);
+    };
 
   if (isLoading || !user) {
     return (
@@ -132,7 +136,7 @@ const MentorDashboard = () => {
             </div>
 
             <button
-              onClick={() => handleChatNavigation(mentee.chatId)}
+              onClick={() => handleChatNavigation(mentee)}
               className="mt-6 w-full flex items-center justify-center px-4 py-2.5 text-lg font-medium text-white bg-black rounded-lg hover:bg-black/90 dark:bg-white dark:text-orange-500 dark:hover:bg-white/90 transition-colors shadow-xl transform hover:scale-[1.01] active:scale-[0.99]"
             >
               <MessageSquare className="w-5 h-5 mr-2" />

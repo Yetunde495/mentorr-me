@@ -6,7 +6,7 @@ interface MessageInputProps {
     imageFile?: File | null;
     audioFile?: Blob | null;
   }) => Promise<void>;
-  sendTypingEvent: () => void; // new prop from useChat
+  sendTypingEvent: () => void;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -18,17 +18,49 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const stopTypingTimeout = useRef<number | null>(null);
 
-  // --- Typing logic ---
-  const typingTimeout = useRef<number | null>(null);
+  const handleChange = (newText: string) => {
+    const wasEmpty = text.length === 0;
+    const isEmpty = newText.length === 0;
+    setText(newText);
+    if (isEmpty) {
+      if (stopTypingTimeout.current) {
+        window.clearTimeout(stopTypingTimeout.current);
+        stopTypingTimeout.current = null;
+      }
+      return;
+    }
+    if (wasEmpty && newText.length > 0) {
+      sendTypingEvent();
+    }
+    if (stopTypingTimeout.current) {
+      window.clearTimeout(stopTypingTimeout.current);
+    }
+    stopTypingTimeout.current = window.setTimeout(() => {
+      sendTypingEvent();
+      stopTypingTimeout.current = null;
+    }, 2000) as unknown as number;
+  };
 
-  const handleTyping = () => {
-    sendTypingEvent(); // notify others
-    // optional: throttle so we only send once every 700ms
-    if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    typingTimeout.current = window.setTimeout(() => {
-      typingTimeout.current = null;
-    }, 700);
+  // --- Submit ---
+  const submit = () => {
+    if (!text.trim()) return;
+
+    // Clear any pending 'stop typing' timeout
+    if (stopTypingTimeout.current) {
+      window.clearTimeout(stopTypingTimeout.current);
+      stopTypingTimeout.current = null;
+    }
+
+    onSend({ text }).catch(console.error);
+    setText("");
+
+    // OPTIONAL: Call sendTypingEvent() one last time to force remote typing status off
+    // If your remote client relies solely on the 4s timeout, this step isn't strictly necessary.
+    // However, a dedicated 'stop typing' event is more reliable.
+    // Since your backend doesn't support a 'stop' event, we skip this for now.
+    // The message send will clear the typing status naturally in most UI implementations anyway.
   };
 
   // --- Recording ---
@@ -65,13 +97,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     e.currentTarget.value = "";
   };
 
-  // --- Submit ---
-  const submit = () => {
-    if (!text.trim()) return;
-    onSend({ text }).catch(console.error);
-    setText("");
-  };
-
   return (
     <div className="flex mx-auto max-w-4xl items-center gap-2 p-3 border rounded-lg my-2 border-slate-200 dark:border-gray-800">
       <input
@@ -92,10 +117,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       <div className="flex-1">
         <input
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            handleTyping();
-          }}
+          onChange={(e) => handleChange(e.target.value)}
           placeholder="Type a message"
           className="w-full bg-transparent outline-none"
           onKeyDown={(e) => e.key === "Enter" && submit()}

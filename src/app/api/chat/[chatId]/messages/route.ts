@@ -7,22 +7,22 @@ const CHAT_COLLECTION = "chats";
 
 export async function GET(
   request: NextRequest,
-   { params }: { params: Promise<{ chatId: string }> }
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
-     const resolvedParams = await params;
+    const resolvedParams = await params;
     const { chatId } = resolvedParams;
     const user = await getAuthenticatedUser(request);
     if (!user) {
-        console.warn("DEBUG: Unauthorized access attempt.");
+      console.warn("DEBUG: Unauthorized access attempt.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-
     // Authorization check: Ensure the user is part of this chat.
-    // We do this by checking if their ID is present in the chatDocId (e.g., "mentor-1_student-123").
     if (!chatId.includes(user.id)) {
-     console.warn(`DEBUG: Forbidden access attempt. User ${user.id} not in chat ${chatId}`);
+      console.warn(
+        `DEBUG: Forbidden access attempt. User ${user.id} not in chat ${chatId}`
+      );
       return NextResponse.json(
         { error: "Forbidden: Not a member of this chat." },
         { status: 403 }
@@ -34,7 +34,9 @@ export async function GET(
     const chatDoc = await chatDocRef.get();
 
     if (!chatDoc.exists) {
-     console.log(`DEBUG: Chat document ${chatId} does not exist. Returning empty history.`);
+      console.log(
+        `DEBUG: Chat document ${chatId} does not exist. Returning empty history.`
+      );
       return NextResponse.json(
         { messages: [], chatInfo: null },
         { status: 200 }
@@ -46,9 +48,7 @@ export async function GET(
     // --- 3. RETURN MESSAGES ---
     return NextResponse.json(
       {
-        // Ensure you return the 'chats' array from the document
         messages: data.chats || [],
-        // Optionally, return chat info for the UI (like mentor/mentee names)
         chatInfo: {
           mentorInfo: data.mentorInfo,
           menteeInfo: data.menteeInfo,

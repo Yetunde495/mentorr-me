@@ -19,6 +19,7 @@ import { clearUser, setUser } from "@/features/authSlice";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/services/firebase";
 import { useRouter } from "next/navigation";
+import { setCurrentChat } from "@/features/chatSlice";
 
 function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,6 +51,11 @@ function Sidebar() {
       })
     );
     router.push(`/${user?.role === "mentor" ? "mentee" : "mentor"}/dashboard`);
+  };
+
+  const handleSelectChat = (chat: any) => {
+    dispatch(setCurrentChat(chat));
+    router.push(`/mentor/chat/${chat?.chatId}`);
   };
 
   return (
@@ -112,7 +118,7 @@ function Sidebar() {
           toggleRole: handleToggleRole,
           toggleTheme: () => setDarkMode(!darkMode),
           logout: () => logout(),
-          selectChat: (id: string | undefined) => console.log("open chat:", id),
+          selectChat: (chat: any) => handleSelectChat(chat),
         })}
       </motion.div>
       <div>
@@ -218,7 +224,7 @@ function renderSidebarContent({
               <button
                 key={mentee?.id}
                 className="flex items-center gap-3 w-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl"
-                onClick={() => selectChat(mentee?.chatId)}
+                onClick={() => selectChat(mentee)}
               >
                 <div>
                   <Avatar
