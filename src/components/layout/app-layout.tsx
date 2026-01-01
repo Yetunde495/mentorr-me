@@ -49,7 +49,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               }
             `}
           >
-            <FormSidebar onClose={() => setShowRightSidebar(false)} />
+            <FormSidebar />
           </div>
 
           {/* Mobile overlay */}
