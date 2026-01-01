@@ -24,23 +24,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const wasEmpty = text.length === 0;
     const isEmpty = newText.length === 0;
     setText(newText);
-    if (isEmpty) {
-      if (stopTypingTimeout.current) {
-        window.clearTimeout(stopTypingTimeout.current);
-        stopTypingTimeout.current = null;
-      }
-      return;
-    }
-    if (wasEmpty && newText.length > 0) {
-      sendTypingEvent();
-    }
-    if (stopTypingTimeout.current) {
-      window.clearTimeout(stopTypingTimeout.current);
-    }
-    stopTypingTimeout.current = window.setTimeout(() => {
-      sendTypingEvent();
-      stopTypingTimeout.current = null;
-    }, 2000) as unknown as number;
+    // if (isEmpty) {
+    //   if (stopTypingTimeout.current) {
+    //     window.clearTimeout(stopTypingTimeout.current);
+    //     stopTypingTimeout.current = null;
+    //   }
+    //   return;
+    // }
+    // if (wasEmpty && newText.length > 0) {
+    //   sendTypingEvent();
+    // }
+    // if (stopTypingTimeout.current) {
+    //   window.clearTimeout(stopTypingTimeout.current);
+    // }
+    // stopTypingTimeout.current = window.setTimeout(() => {
+    //   sendTypingEvent();
+    //   stopTypingTimeout.current = null;
+    // }, 2000) as unknown as number;
   };
 
   // --- Submit ---

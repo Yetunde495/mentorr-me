@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import Pusher from "pusher";
+import { headers } from "next/headers";
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -40,6 +41,7 @@ interface ChatSendRequestBody {
   mentorId: string;
   menteeId: string;
   message: ChatMessage;
+  socket_id?: string;
   initialFormData?: any; // Use a more specific type if possible
 }
 
@@ -51,6 +53,16 @@ const CHAT_COLLECTION = "chats";
 
 export async function POST(request: Request) {
   try {
+    const headersList = headers();
+    const authorization = (await headersList).get("authorization") || "";
+    const idToken = authorization.replace("Bearer ", "");
+
+    if (!idToken) {
+      return NextResponse.json(
+        { error: "Authorization token missing" },
+        { status: 401 }
+      );
+    }
     const body: ChatSendRequestBody = await request.json();
     const { mentorId, menteeId, message, initialFormData } = body;
 
@@ -74,7 +86,7 @@ export async function POST(request: Request) {
       receiverId: message.receiverId,
       senderType: message.senderType,
       type: message.type,
-      content: message.content || '',
+      content: message.content || "",
       fileUrl: message.fileUrl || null,
       createdAt: new Date().toISOString(), // Use server time for accuracy
     };
@@ -145,6 +157,16 @@ export async function POST(request: Request) {
       message: dbMessage,
       tempId: message.id,
     });
+
+    await pusher.trigger(
+      pusherChannel,
+      CHAT_EVENT,
+      {
+        message: dbMessage,
+        tempId: message.id,
+      },
+      { socket_id: body.socket_id } // ← prevents broadcasting back to the sender
+    );
 
     // --- 4. RETURN SUCCESS RESPONSE ---
     return NextResponse.json(

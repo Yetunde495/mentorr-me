@@ -65,7 +65,7 @@ const MentorChatPage: React.FC = () => {
     typingUsers,
     sendTypingEvent,
     sendMessageOptimistic,
-    markAsRead,
+    // markAsRead,
   } = useChat({
     channelName,
     channelId: currentChat?.chatId,
@@ -120,7 +120,7 @@ const MentorChatPage: React.FC = () => {
   );
 
   const handleTyping = useCallback(() => {
-    sendTypingEvent(channelName);
+    // sendTypingEvent(channelName);
   }, [channelName, sendTypingEvent]);
 
   console.log(typingUsers)
@@ -187,7 +187,7 @@ const MentorChatPage: React.FC = () => {
             currentUser={user}
             mentor={user} // The mentor is the current user in this context
             onImageClick={() => {}}
-            onMarkRead={(id: string) => markAsRead(id)}
+            onMarkRead={(id: string) => {}}
             typingUsers={typingUsers}
           />
         </div>

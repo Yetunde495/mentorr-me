@@ -51,7 +51,7 @@ type OnMessages = (msgs: ChatMessage[]) => void;
  * - optimistic UI helper functions (sendMessage)
  * - multi-device sync via pusher events
  */
-export function useChat({
+export function useChats({
   channelName,
   user,
   partnerId,
@@ -124,145 +124,155 @@ export function useChat({
   );
 
   useEffect(() => {
-    if (!channelName) return;
+    const setup = async () => {
+      if (!authUser || !channelName) return;
 
-    // init pusher client
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY as string, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER as string,
-      authEndpoint: "/api/pusher/auth",
-    });
-    pusherRef.current = pusher;
+      const token = await authUser.getIdToken(); // <-- get token INSIDE here
 
-    // presence channel
-    const channel = pusher.subscribe(channelName);
-    channelRef.current = channel;
-
-    // subscription success (presence channels: members object passed)
-    channel.bind("pusher:subscription_succeeded", (membersObj: any) => {
-      // membersObj may be a pusher members object or count depending on channel type
-      // we convert to a plain map of user_id -> user_info
-      try {
-        const plainMembers: Record<string, any> = {};
-        if (membersObj && membersObj.each) {
-          // presence members object (works with pusher-js)
-          membersObj.each((member: any) => {
-            plainMembers[member.id] = member.info;
-          });
-        } else if (typeof membersObj === "object") {
-          // fallback: sometimes pusher returns raw object
-          Object.keys(membersObj).forEach((k) => {
-            plainMembers[k] = membersObj[k];
-          });
-        }
-        setMembers(plainMembers);
-      } catch (err) {
-        console.warn("failed to parse members", err);
-      }
-    });
-
-    channel.bind("pusher:member_added", (member: any) => {
-      setMembers((prev) => ({ ...prev, [member.id]: member.info }));
-    });
-
-    channel.bind("pusher:member_removed", (member: any) => {
-      setMembers((prev) => {
-        const copy = { ...prev };
-        delete copy[member.id];
-        return copy;
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+        authEndpoint: "/api/pusher/auth",
+        auth: {
+          headers: {
+            Authorization: `Bearer ${token}`, // <-- NOW valid
+          },
+        },
+        forceTLS: false,
+        wsPort: 80,
       });
-    });
 
-    // New message
-    channel.bind("new-message", (data: ChatMessage) => {
-      setMessages((prev) => {
-        if (prev.find((m) => m.id === data.id)) return prev.concat(); // no change
-        return [...prev, { ...data, status: "sent" }];
-      });
-      console.log('binded')
+      pusherRef.current = pusher;
+      const channel = pusher.subscribe(channelName);
+      channelRef.current = channel;
 
-      // if (data.senderId !== user.id) {
-      //   fetch("/api/pusher/receipt", {
-      //     method: "POST",
-      //     headers: { "Content-Type": "application/json" },
-      //     body: JSON.stringify({
-      //       channel: channelName,
-      //       messageId: data.id,
-      //       type: "delivered",
-      //     }),
-      //   }).catch((e) => console.warn("receipt error", e));
-      // }
-    });
-
-    // Typing indicator
-    channel.bind(
-      "typing",
-      (d: { userId: string; name: string; at: string }) => {
-        if (d.userId === user.id) return;
-
-        setTypingUsers((prev) => ({
-          ...prev,
-          [d.userId]: { name: d.name, at: d.at },
-        }));
-
-        const timeoutKey = `typingTimeout_${d.userId}`;
-        const existingTimeout = (window as any)[timeoutKey];
-        if (existingTimeout) {
-          window.clearTimeout(existingTimeout);
-        }
-
-        // Set new timeout for cleanup after 4s
-        const newTimeout = window.setTimeout(() => {
-          setTypingUsers((prev) => {
-            const copy = { ...prev };
-            delete copy[d.userId];
-            return copy;
+      // subscription success (presence channels: members object passed)
+      channel.bind("pusher:subscription_succeeded", (membersObj: any) => {
+        try {
+          const plainMembers: Record<string, any> = {};
+          if (membersObj && membersObj.each) {
+            // presence members object (works with pusher-js)
+            membersObj.each((member: any) => {
+              plainMembers[member.id] = member.info;
+            });
+          } else if (typeof membersObj === "object") {
+            // fallback: sometimes pusher returns raw object
+            Object.keys(membersObj).forEach((k) => {
+              plainMembers[k] = membersObj[k];
+            });
+          }
+          setMembers(plainMembers);
+          console.log("Pusher: Channel subscription successful!", {
+            channelName,
+            membersCount: Object.keys(membersObj.members || {}).length,
           });
-          delete (window as any)[timeoutKey];
-        }, 4000) as unknown as number;
+        } catch (err) {
+          console.warn("failed to parse members", err);
+        }
+      });
 
-        (window as any)[timeoutKey] = newTimeout;
-      }
-    );
+      channel.bind("pusher:member_added", (member: any) => {
+        setMembers((prev) => ({ ...prev, [member.id]: member.info }));
+      });
 
-    // Receipts (delivered/read)
-    channel.bind(
-      "message-receipt",
-      (payload: {
-        messageId: string;
-        type: string;
-        userId: string;
-        at: string;
-      }) => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === payload.messageId
-              ? { ...m, status: payload.type as any }
-              : m
-          )
-        );
-      }
-    );
+      channel.bind("pusher:member_removed", (member: any) => {
+        setMembers((prev) => {
+          const copy = { ...prev };
+          delete copy[member.id];
+          return copy;
+        });
+      });
 
-    // You can define custom events like "message-updated" for edits or "message-deleted"
-    channel.bind("message-updated", (payload: any) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === payload.id ? { ...m, ...payload } : m))
+      // New message
+      channel.bind("new-message", (data: ChatMessage) => {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev.concat(); // no change
+          return [...prev, { ...data, status: "sent" }];
+        });
+        console.log("binded");
+
+        // if (data.senderId !== user.id) {
+        //   fetch("/api/pusher/receipt", {
+        //     method: "POST",
+        //     headers: { "Content-Type": "application/json" },
+        //     body: JSON.stringify({
+        //       channel: channelName,
+        //       messageId: data.id,
+        //       type: "delivered",
+        //     }),
+        //   }).catch((e) => console.warn("receipt error", e));
+        // }
+      });
+
+      // Typing indicator
+      channel.bind(
+        "typing",
+        (d: { userId: string; name: string; at: string }) => {
+          if (d.userId === user.id) return;
+
+          setTypingUsers((prev) => ({
+            ...prev,
+            [d.userId]: { name: d.name, at: d.at },
+          }));
+
+          const timeoutKey = `typingTimeout_${d.userId}`;
+          const existingTimeout = (window as any)[timeoutKey];
+          if (existingTimeout) {
+            window.clearTimeout(existingTimeout);
+          }
+
+          // Set new timeout for cleanup after 4s
+          const newTimeout = window.setTimeout(() => {
+            setTypingUsers((prev) => {
+              const copy = { ...prev };
+              delete copy[d.userId];
+              return copy;
+            });
+            delete (window as any)[timeoutKey];
+          }, 4000) as unknown as number;
+
+          (window as any)[timeoutKey] = newTimeout;
+        }
       );
-    });
 
-    // load history once
-    loadHistory(channelId);
+      // Receipts (delivered/read)
+      channel.bind(
+        "message-receipt",
+        (payload: {
+          messageId: string;
+          type: string;
+          userId: string;
+          at: string;
+        }) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === payload.messageId
+                ? { ...m, status: payload.type as any }
+                : m
+            )
+          );
+        }
+      );
+
+      // You can define custom events like "message-updated" for edits or "message-deleted"
+      channel.bind("message-updated", (payload: any) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === payload.id ? { ...m, ...payload } : m))
+        );
+      });
+
+      loadHistory(channelId); // history loads after connection
+    };
+
+    setup(); // run async logic
 
     return () => {
       try {
-        channel.unbind_all();
-        pusher.unsubscribe(channelName);
-        pusher.disconnect();
-      } catch (err) {
-        console.warn("cleanup pusher", err);
-      }
+        channelRef.current?.unbind_all();
+        pusherRef?.current?.unsubscribe(channelName || "");
+        pusherRef.current?.disconnect();
+      } catch {}
     };
-  }, [channelName, loadHistory, user.id, user.name]);
+  }, [channelName, channelId, user.id, loadHistory]);
 
   // Typing debounce & send
   const typingTimeoutRef = useRef<number | null>(null);
@@ -415,6 +425,221 @@ export function useChat({
       fileUrl?: string
     ) => sendMessageOptimistic(content, type, fileUrl),
     markAsRead,
+    setMessages,
+  };
+}
+
+export function useChat({
+  // channelName,
+  user,
+  partnerId,
+  senderType,
+  channelId,
+}: UseChatOptions) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [members, setMembers] = useState<Record<string, any>>({});
+  const [typingUsers, setTypingUsers] = useState<
+    Record<string, { name: string; at: string }>
+  >({});
+  const pusherRef = useRef<Pusher | null>(null);
+  const channelRef = useRef<any>(null);
+  const authUser = auth.currentUser;
+
+  // Compute chatDocId same as server
+  const chatDocId = [user.id, partnerId].sort().join("_");
+  const channelName = `presence-chat-${chatDocId}`;
+
+  // ----------------- Setup Pusher & Channel -----------------
+  useEffect(() => {
+    if (!authUser) return;
+
+    const setup = async () => {
+      const token = await authUser.getIdToken();
+
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+        authEndpoint: "/api/pusher/auth",
+        auth: { headers: { Authorization: `Bearer ${token}` } },
+        forceTLS: false,
+        wsPort: 80,
+      });
+
+      pusherRef.current = pusher;
+      const channel = pusher.subscribe(channelName);
+      channelRef.current = channel;
+
+      // ---------- Presence: Members ----------
+      channel.bind("pusher:subscription_succeeded", (membersObj: any) => {
+        const plainMembers: Record<string, any> = {};
+        if (membersObj.each) {
+          membersObj.each((m: any) => (plainMembers[m.id] = m.info));
+        } else if (membersObj.members) {
+          Object.keys(membersObj.members).forEach(
+            (k) => (plainMembers[k] = membersObj.members[k])
+          );
+        }
+        setMembers(plainMembers);
+      });
+
+      channel.bind("pusher:member_added", (member: any) => {
+        setMembers((prev) => ({ ...prev, [member.id]: member.info }));
+      });
+
+      channel.bind("pusher:member_removed", (member: any) => {
+        setMembers((prev) => {
+          const copy = { ...prev };
+          delete copy[member.id];
+          return copy;
+        });
+      });
+
+      // ---------- Listen for new messages ----------
+      channel.bind(
+        "new-message",
+        ({ message, tempId }: { message: ChatMessage; tempId?: string }) => {
+          setMessages((prev) => {
+            // Replace optimistic message if tempId matches
+            if (tempId) {
+              return prev.map((m) =>
+                m.id === tempId ? { ...message, status: "sent" } : m
+              );
+            }
+            // Add new message if not already present
+            if (prev.some((m) => m.id === message.id)) return prev;
+            return [...prev, { ...message, status: "sent" }];
+          });
+        }
+      );
+
+      // ---------- Typing Indicator ----------
+      channel.bind(
+        "typing",
+        (data: { userId: string; name: string; at: string }) => {
+          if (data.userId === user.id) return;
+
+          setTypingUsers((prev) => ({
+            ...prev,
+            [data.userId]: { name: data.name, at: data.at },
+          }));
+
+          const timeoutKey = `typingTimeout_${data.userId}`;
+          const existing = (window as any)[timeoutKey];
+          if (existing) clearTimeout(existing);
+
+          (window as any)[timeoutKey] = setTimeout(() => {
+            setTypingUsers((prev) => {
+              const copy = { ...prev };
+              delete copy[data.userId];
+              return copy;
+            });
+            delete (window as any)[timeoutKey];
+          }, 4000);
+        }
+      );
+    };
+
+    setup();
+
+    return () => {
+      try {
+        channelRef.current?.unbind_all();
+        pusherRef.current?.unsubscribe(channelName);
+        pusherRef.current?.disconnect();
+      } catch {}
+    };
+  }, [authUser, user.id, partnerId]);
+
+  // ----------------- Send Message -----------------
+  const sendMessageOptimistic = async (
+    content: string,
+    messageType: ChatMessage["type"] = "text",
+    fileUrl?: string
+  ) => {
+    if (!authUser) throw new Error("Not authenticated");
+
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 9)}`;
+    const tempMsg: ChatMessage = {
+      id: tempId,
+      senderId: user.id,
+      receiverId: partnerId,
+      senderType,
+      type: messageType,
+      content,
+      fileUrl: fileUrl || null || undefined,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+      channel: channelName,
+    };
+
+    // Add optimistic message locally
+    setMessages((prev) => [...prev, tempMsg]);
+
+    try {
+      const socket_id = pusherRef.current?.connection.socket_id;
+      const token = await authUser.getIdToken();
+      // Determine the IDs based on the sender's role
+      const isMentor = senderType === "mentor";
+      const mentorId = isMentor ? user.id : partnerId;
+      const menteeId = isMentor ? partnerId : user.id;
+      const apiPayload = {
+        channelId: channelId,
+        partnerId: partnerId,
+        senderType: senderType,
+        tempMessageId: tempId,
+        messageContent: content,
+        messageType: messageType,
+        fileUrl: fileUrl,
+        socket_id: socket_id,
+        mentorId: mentorId,
+        menteeId: menteeId,
+        message: tempMsg,
+      };
+
+      const res = await fetch("/api/chat/send", {
+        method: "POST",
+        headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(apiPayload),
+      });
+
+      if (!res.ok) throw new Error("Failed to send message");
+      const saved = await res.json();
+
+      // Replace temp message with server-persisted one
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...saved.persistedMessage, status: "sent" } : m
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: "failed" } : m))
+      );
+    }
+  };
+
+  // ----------------- Typing Event -----------------
+  const sendTypingEvent = useCallback(async () => {
+    if (!authUser) return;
+    const token = await authUser.getIdToken();
+    await fetch("/api/pusher/typing", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ channel: channelName }),
+    });
+  }, [authUser, channelName]);
+
+  return {
+    messages,
+    members,
+    typingUsers,
+    sendMessageOptimistic,
+    sendTypingEvent,
     setMessages,
   };
 }

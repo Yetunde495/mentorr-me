@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
 
   try {
     // 2. Parse the request body for Pusher parameters
-    const body = await req.json();
-    const { socket_id, channel_name } = body;
+    const form = await req.formData(); // <--- instead of req.json()
+    const socket_id = form.get("socket_id")?.toString();
+    const channel_name = form.get("channel_name")?.toString();
 
     if (!socket_id || !channel_name) {
       return NextResponse.json(
@@ -77,14 +78,17 @@ export async function POST(req: NextRequest) {
           role: userProfile?.role || "mentee",
         },
       };
+      console.log(presenceData);
       // Authorize and get the response object
       authResponse = pusher.authorizeChannel(
         socket_id,
         channel_name,
         presenceData
       );
+      console.log(authResponse);
     } else if (channel_name.startsWith("private-")) {
       authResponse = pusher.authorizeChannel(socket_id, channel_name);
+      console.log(authResponse);
     } else {
       return NextResponse.json(
         { error: "Unauthorized channel type" },

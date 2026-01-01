@@ -8,7 +8,7 @@ export interface ChatMessage {
 
   senderId: string;
   receiverId: string;
-  senderType: "mentor" | "student";  // determines alignment & styles in UI
+  senderType: "mentor" | "mentee";  // determines alignment & styles in UI
 
   type: MessageType;               // text | image | audio | file
   content?: string;                // message text
