@@ -49,14 +49,14 @@ export default function Home() {
         {/* HERO SECTION */}
         <section className="grid lg:grid-cols-2 grid-cols-1 gap-8 items-center py-14">
           <div>
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="text-sm text-gray-500 hidden mb-2">
               Cohort runs Nov 19 — Dec 10, 2025. Limited spots.
             </p>
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="text-4xl md:text-6xl font-semibold mb-4"
+              className="sm:text-4xl text-3xl md:text-6xl font-semibold mb-4"
             >
               Get Paired With The Right{" "}
               <FlipWords words={["Mentor", "Learner"]} />
@@ -75,11 +75,11 @@ export default function Home() {
             </motion.p>
 
             {/* CTA Buttons */}
-            <div className="flex gap-4">
-              <Link href={`signin`} className="px-6 py-3 rounded-md bg-orange-500 text-white font-semibold hover:bg-orange-600 transition-all">
+            <div className="flex gap-1.5 sm:gap-4">
+              <Link href={`signin`} className="sm:px-6 px-2 py-1.5 sm:py-3 rounded-md bg-orange-500 text-white font-semibold hover:bg-orange-600 transition-all">
                 Get Paired Now
               </Link>
-              <button className="px-6 py-3 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+              <button className="sm:px-6 px-2 py-1.5 sm:py-3 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
                 More Details
               </button>
             </div>
